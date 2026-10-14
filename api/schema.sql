@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS daily_usage (
+  day TEXT PRIMARY KEY,
+  used INTEGER NOT NULL DEFAULT 0 CHECK (used >= 0)
+);

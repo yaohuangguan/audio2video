@@ -49,3 +49,23 @@ Local audio is not uploaded unless user explicitly requests AI transcription on 
 - public/sw.js: offline shell service worker
 
 License: all rights reserved until explicitly chosen.
+
+
+## V2: private cloud processing
+
+The frontend supports Cloudflare Workers AI Whisper Large v3 Turbo caption timestamps and Cloud Run / FFmpeg for H.264/AAC MP4. Both cloud features require a private owner access code. Local playback/edit/export remains available.
+
+### Usage and security
+
+- Private Worker gateway: secret access key, 4 requests per minute, D1 atomic daily total limit of 12 combined transcriptions or renders.
+- File max 6MB, transcription client max 3 minutes, cloud MP4 max 60-second clip.
+- Uploaded audio is only sent to the server when the user explicitly clicks a cloud operation. There is no R2 audio archive.
+- Cloud Run uses an independent secret and deletes job files from its temporary folder.
+- This is a single-owner prototype, NOT a public SaaS: keep quotas and secrets until per-user accounting/billing is in place.
+- The cloud renderer produces a similar but simplified design to the browser preview. Custom uploaded background images currently affect browser previews and native browser recordings, but not cloud MP4.
+
+### Deployment
+
+Cloudflare API source is in api/, D1 schema is api/schema.sql, Cloud Run source is render-service/. Worker runtime secrets ACCESS_KEY, RENDER_SECRET and RENDER_URL must never be committed. The frontend uses public VITE_API_BASE at build time. The render container expects an independent RENDER_SECRET environment variable.
+
+Cloud Run has potential pay-per-use charges. Deploy with min-instances=0, max-instances=1 and low concurrency. Manual iPhone MP4 export must be checked on actual hardware.
