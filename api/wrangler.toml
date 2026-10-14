@@ -1,0 +1,21 @@
+name = "audio2video-api"
+main = "index.ts"
+compatibility_date = "2026-10-14"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "audio2video-usage"
+database_id = "e1d2fb33-9293-4382-9144-5cfc7670e79e"
+
+[[ratelimits]]
+name = "RATE"
+namespace_id = "38456"
+
+[ratelimits.simple]
+limit = 4
+period = 60

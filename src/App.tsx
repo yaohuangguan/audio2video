@@ -10,7 +10,7 @@ import { drawVideoFrame } from './render'
 import { FORMATS, THEMES } from './types'
 import type { Caption, FormatId, ThemeId } from './types'
 
-const TRANSCRIBE_URL = import.meta.env.VITE_TRANSCRIBE_URL as string | undefined
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || 'https://audio2video-api.nzp.workers.dev'
 const DEFAULT_PEAKS = Array.from({ length: 49 }, (_, i) => .17 + .77 * Math.abs(Math.sin(i * 1.69) * Math.cos(i * .61)))
 const ACCENTS = ['#d5ff85', '#f5b68e', '#b9a4ff', '#ffffff']
 
@@ -52,6 +52,8 @@ export default function App() {
   const [output, setOutput] = useState<{ url: string; name: string; mime: string } | null>(null)
   const [notice, setNotice] = useState('')
   const [transcribing, setTranscribing] = useState(false)
+  const [cloudRendering, setCloudRendering] = useState(false)
+  const [accessCode, setAccessCode] = useState(() => sessionStorage.getItem('a2v-access') || '')
   const [clipStart, setClipStart] = useState(0)
   const [clipEnd, setClipEnd] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -188,16 +190,18 @@ export default function App() {
   }
 
   async function transcribeAudio() {
-    if (!TRANSCRIBE_URL) {
+    if (!API_BASE) {
       setNotice('AI 语音识别尚未配置：可先导入 SRT，或粘贴文稿分段。接入 API 需要部署后端。')
       return
     }
     if (!audioFile || transcribing) return
+    if (!accessCode.trim()) { setNotice('请先输入内测访问码'); return }
+    if (audioFile.size > 6 * 1024 * 1024 || duration > 180) { setNotice('云端语音识别目前仅支持小于 6MB、最长 3 分钟的音频'); return }
     setTranscribing(true)
     try {
       const form = new FormData()
       form.set('file', audioFile, audioFile.name)
-      const response = await fetch(TRANSCRIBE_URL, { method: 'POST', body: form })
+      const response = await fetch(API_BASE + '/transcribe', { method: 'POST', headers: { 'X-Audio2Video-Key': accessCode.trim() }, body: form })
       const payload = await response.json() as { captions?: Caption[]; error?: string }
       if (!response.ok || !payload.captions?.length) throw new Error(payload.error || '识别服务未返回有效字幕')
       setCaptions(payload.captions.map((item, i) => ({ ...item, id: String(i) })))
@@ -227,6 +231,43 @@ export default function App() {
     setCaptions((current) => current.map((item) => item.id === id
       ? { ...item, [key]: key === 'text' ? value : Math.max(0, Number(value) || 0) }
       : item))
+  }
+
+  async function exportCloudMp4() {
+    if (!audioFile || cloudRendering || !API_BASE) return
+    if (!accessCode.trim()) { setNotice('请先输入内测访问码'); return }
+    if (audioFile.size > 6 * 1024 * 1024) { setNotice('云端 MP4 单次限制 6MB'); return }
+    if (clipEnd - clipStart > 60 || clipEnd <= clipStart) { setNotice('云端 MP4 最长支持 60 秒，请先设置视频片段'); return }
+    setCloudRendering(true)
+    setOutput(null)
+    try {
+      const form = new FormData()
+      form.set('file', audioFile, audioFile.name)
+      form.set('options', JSON.stringify({
+        theme, format, title, creator, accent, captions,
+        clipStart, clipEnd, showWave, showCaptions,
+      }))
+      const response = await fetch(API_BASE + '/render', {
+        method: 'POST', headers: { 'X-Audio2Video-Key': accessCode.trim() },
+        body: form, signal: AbortSignal.timeout(180000)
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: '云端渲染服务暂时不可用' })) as { error?: string }
+        throw new Error(payload.error || '云端渲染失败')
+      }
+      if (!(response.headers.get('content-type') || '').includes('video/mp4')) throw new Error('服务端未返回标准 MP4')
+      const blob = await response.blob()
+      if (!blob.size) throw new Error('服务端返回的 MP4 为空')
+      setOutput({
+        url: URL.createObjectURL(blob),
+        name: prepareFileName(audioFile.name) + '-cloud.mp4', mime: 'video/mp4'
+      })
+      setNotice('云端 H.264/AAC MP4 已生成，可以保存到手机')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '云端 MP4 导出失败')
+    } finally {
+      setCloudRendering(false)
+    }
   }
 
   async function exportVideo() {
@@ -334,6 +375,7 @@ export default function App() {
         <section className="workspace">
           <div className="panel left-panel">
             <div className="panel-title"><span className="step">01</span><div><h2>音频素材</h2><p>让创作从你的声音开始</p></div></div>
+            <div className="access-box"><label htmlFor="access-code"><ShieldCheck size={15}/> 内测访问码 <span>用于保护云端额度</span></label><input id="access-code" type="password" value={accessCode} autoComplete="off" placeholder="填写你的私有访问码" onChange={(e) => { setAccessCode(e.target.value); sessionStorage.setItem('a2v-access', e.target.value) }}/></div>
             <input ref={fileRef} type="file" className="hidden" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac" onChange={(e) => { const file = e.target.files?.[0]; if (file) void importAudio(file); e.target.value = '' }} />
             <div className={'dropzone ' + (dragging ? 'dragging' : '') + (audioFile ? ' has-file' : '')} onDragOver={(e) => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={onFileDrop} onClick={() => fileRef.current?.click()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') fileRef.current?.click() }}>
               {audioFile ? <><span className="upload-icon loaded"><Music2 size={23}/></span><strong className="file-name">{audioFile.name}</strong><span>{(audioFile.size / 1024 / 1024).toFixed(1)} MB · {formatClock(duration)} · 点击替换</span></> : <><span className="upload-icon"><CloudUpload size={25}/></span><strong>点击或拖拽上传音频</strong><span>MP3, M4A, WAV, FLAC 等格式</span><div className="upload-pill"><Plus size={15}/> 选择音频文件</div></>}
@@ -375,8 +417,8 @@ export default function App() {
               <label className="toggle-setting"><span><AudioLines size={16}/> 动态声波</span><input type="checkbox" checked={showWave} onChange={(e) => setShowWave(e.target.checked)}/><i/></label>
               <label className="toggle-setting"><span><Subtitles size={16}/> 显示字幕</span><input type="checkbox" checked={showCaptions} onChange={(e) => setShowCaptions(e.target.checked)}/><i/></label>
             </div> : <div className="settings-body caption-settings">
-              <div className="setting-label">AI 自动语音识别 <span>需要配置后端</span></div><button className="outline-action" onClick={() => void transcribeAudio()} disabled={!audioFile || transcribing}>{transcribing ? <LoaderCircle size={16} className="spin"/> : <Sparkles size={16}/>} {transcribing ? '正在识别...' : '识别音频并生成字幕'} <ArrowRight size={16} className="push-right"/></button>
-              {!TRANSCRIBE_URL && <p className="muted-warning">当前演示未接入语音 API。可导入 SRT 或粘贴文稿，后者的时间轴为估算值。</p>}
+              <div className="setting-label">AI 自动语音识别 <span>Whisper 中文识别</span></div><button className="outline-action" onClick={() => void transcribeAudio()} disabled={!audioFile || transcribing}>{transcribing ? <LoaderCircle size={16} className="spin"/> : <Sparkles size={16}/>} {transcribing ? '正在识别...' : '识别音频并生成字幕'} <ArrowRight size={16} className="push-right"/></button>
+              {!API_BASE && <p className="muted-warning">云端 API 尚未启用，可导入 SRT 或粘贴文稿。</p>}
               <div className="section-divider"/>
               <label className="setting-label" htmlFor="transcript-input">粘贴完整文稿 <span>按字数估算时间轴</span></label><textarea id="transcript-input" className="transcript-input" rows={5} value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="把录音的文稿粘贴到这里。系统会自动分句并创建时间轴，之后你可以手动校准。"/>
               <button className="solid-minor" onClick={generateFromTranscript} disabled={!transcript.trim()}>生成分段字幕 <ArrowRight size={15}/></button>
@@ -389,7 +431,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="export-panel"><div className="export-heading"><div className="export-symbol"><Download size={23}/></div><div><h2>准备好分享你的声音了吗？</h2><p>真实音频 + 动态画面 + 同步字幕，直接导出可发布的视频。</p></div></div><div className="export-options"><label className="export-select"><span>导出比例</span><select value={format} disabled={exporting} onChange={(e) => setFormat(e.target.value as FormatId)}>{FORMATS.map((item) => <option key={item.id} value={item.id}>{item.ratio} · {item.name}</option>)}</select><ChevronDown size={15}/></label><button className="export-button" disabled={!audioFile || exporting || clipEnd <= clipStart} onClick={() => void exportVideo()}>{exporting ? <><LoaderCircle size={18} className="spin"/> 正在制作 {Math.round(exportProgress)}%</> : <><Film size={18}/> 生成视频 <ArrowRight size={18}/></>}</button></div></section>
+        <section className="export-panel"><div className="export-heading"><div className="export-symbol"><Download size={23}/></div><div><h2>准备好分享你的声音了吗？</h2><p>真实音频 + 动态画面 + 同步字幕，直接导出可发布的视频。</p></div></div><div className="export-options"><label className="export-select"><span>导出比例</span><select value={format} disabled={exporting} onChange={(e) => setFormat(e.target.value as FormatId)}>{FORMATS.map((item) => <option key={item.id} value={item.id}>{item.ratio} · {item.name}</option>)}</select><ChevronDown size={15}/></label><button className="cloud-button" disabled={!audioFile || !API_BASE || exporting || cloudRendering || clipEnd <= clipStart} onClick={() => void exportCloudMp4()}>{cloudRendering ? <><LoaderCircle size={17} className="spin"/> 云端渲染中...</> : <><CloudUpload size={17}/> 云端 MP4</>}</button><button className="export-button" disabled={!audioFile || exporting || cloudRendering || clipEnd <= clipStart} onClick={() => void exportVideo()}>{exporting ? <><LoaderCircle size={18} className="spin"/> 正在制作 {Math.round(exportProgress)}%</> : <><Film size={18}/> 生成视频 <ArrowRight size={18}/></>}</button></div></section>
 
         {exporting && <div className="export-running"><div className="export-running-bar" style={{ width: exportProgress + '%' }}/><span>实时录制中，请保持页面开启（需要播放所选片段的实际时长）。</span></div>}
         {output && <div className="download-panel"><div><Check size={20}/><div><strong>视频已制作完成</strong><span>{output.name} · {output.mime.includes('mp4') ? 'MP4' : 'WebM'}</span></div></div><a href={output.url} download={output.name} className="download-button"><ArrowDownToLine size={18}/> 保存视频</a></div>}

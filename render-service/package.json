@@ -1,0 +1,8 @@
+{
+  "name": "audio2video-render",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": { "sharp": "^0.34.4" }
+}
