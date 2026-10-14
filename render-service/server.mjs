@@ -82,7 +82,7 @@ async function render(file, options) {
       filters += '[1:a]anull[audio];[bg]null[visual]'
     }
     if (options.showCaptions && options.captions.length) {
-      filters += ';[visual]subtitles=' + srt + ':force_style=FontName=Noto Sans CJK SC,FontSize=27,Outline=2,Alignment=2,MarginV=' + Math.round(h * .17) + '[v]'
+      filters += ';[visual]subtitles=' + srt + '[v]'
     } else {
       filters += ';[visual]null[v]'
     }

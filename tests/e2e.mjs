@@ -23,6 +23,8 @@ try {
   await page.screenshot({ path: join(outputDir, 'desktop.png'), fullPage: true })
   await page.locator('input[type="file"][accept^="audio"]').setInputFiles({ name: 'demo.wav', mimeType: 'audio/wav', buffer: wav })
   await page.getByText('demo.wav').first().waitFor()
+  await page.getByRole('button', { name: /云端 MP4/ }).waitFor()
+  await page.getByLabel(/内测访问码/).fill('smoke-test-only')
   await page.getByRole('button', { name: '字幕编辑' }).click()
   await page.getByPlaceholder(/把录音的文稿/).fill('你好，欢迎来到声音转视频。这个演示正在测试真实的声音和画面。')
   await page.getByRole('button', { name: /生成分段字幕/ }).click()
