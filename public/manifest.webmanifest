@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "Audio2Video",
+  "short_name": "Audio2Video",
+  "description": "Turn audio into short-form videos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fb",
+  "theme_color": "#f7f8fb",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}
