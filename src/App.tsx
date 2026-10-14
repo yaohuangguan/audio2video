@@ -10,7 +10,7 @@ import { drawVideoFrame } from './render'
 import { FORMATS, THEMES } from './types'
 import type { Caption, FormatId, ThemeId } from './types'
 
-const API_BASE = import.meta.env.VITE_API_BASE as string | undefined
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || 'https://audio2video-api.nzp.workers.dev'
 const DEFAULT_PEAKS = Array.from({ length: 49 }, (_, i) => .17 + .77 * Math.abs(Math.sin(i * 1.69) * Math.cos(i * .61)))
 const ACCENTS = ['#d5ff85', '#f5b68e', '#b9a4ff', '#ffffff']
 
