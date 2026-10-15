@@ -1,5 +1,7 @@
 import { activeCaption, formatClock } from './captions'
 import type { Caption, ThemeId } from './types'
+import type { OutputLocale } from './language'
+import { localizeText, overlayLabels } from './language'
 
 export type RenderConfig = {
   theme: ThemeId
@@ -13,6 +15,7 @@ export type RenderConfig = {
   cover: HTMLImageElement | null
   showWave: boolean
   showCaptions: boolean
+  locale: OutputLocale
 }
 
 function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -51,7 +54,8 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: numb
 }
 
 export function drawVideoFrame(ctx: CanvasRenderingContext2D, w: number, h: number, config: RenderConfig) {
-  const { theme, title, creator, captions, duration, time, peaks, cover, accent, showWave, showCaptions } = config
+  const { theme, title, creator, captions, duration, time, peaks, cover, accent, showWave, showCaptions, locale } = config
+  const labels = overlayLabels(locale)
   const dark = theme !== 'paper'
   const palettes: Record<ThemeId, [string, string, string]> = {
     noir: ['#111729', '#28264f', '#6653ae'],
@@ -100,15 +104,15 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, w: number, h: numb
   ctx.fill()
   ctx.font = '600 ' + Math.round(21 * scale) + 'px system-ui, sans-serif'
   ctx.fillStyle = dim
-  ctx.fillText('AUDIO STORIES  /  001', left, top + 52 * scale)
+  ctx.fillText(labels.header, left, top + 52 * scale)
   ctx.font = '700 ' + Math.round(55 * scale) + 'px system-ui, "PingFang SC", sans-serif'
   ctx.fillStyle = fg
-  const titleLines = wrapText(ctx, title || '让每个声音，都被看见。', maxWidth, 3)
+  const titleLines = wrapText(ctx, localizeText(title || labels.fallback, locale), maxWidth, 3)
   titleLines.forEach((line, index) => ctx.fillText(line, left, top + 160 * scale + index * 80 * scale))
   const titleBottom = top + 160 * scale + Math.max(titleLines.length - 1, 0) * 80 * scale
   ctx.font = '400 ' + Math.round(23 * scale) + 'px system-ui, sans-serif'
   ctx.fillStyle = dim
-  ctx.fillText(creator || 'MY AUDIO JOURNAL', left, titleBottom + 50 * scale)
+  ctx.fillText(localizeText(creator || '我的声音电台', locale), left, titleBottom + 50 * scale)
   const waveY = Math.min(h * .64, Math.max(h * .48, titleBottom + 235 * scale))
   if (showWave) {
     const count = 49
@@ -125,7 +129,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, w: number, h: numb
     }
   }
   if (showCaptions) {
-    const text = activeCaption(captions, time)?.text ?? (captions.length === 0 ? '让声音，成为画面。' : '')
+    const text = localizeText(activeCaption(captions, time)?.text ?? '', locale)
     if (text) {
       ctx.font = '600 ' + Math.round(32 * scale) + 'px system-ui, "PingFang SC", sans-serif'
       const rows = wrapText(ctx, text, maxWidth, 3)
@@ -148,7 +152,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, w: number, h: numb
   ctx.fill()
   ctx.font = '500 ' + Math.round(18 * scale) + 'px system-ui, sans-serif'
   ctx.fillStyle = dim
-  ctx.fillText('AUDIO2VIDEO', left, footerY + 37 * scale)
+  ctx.fillText(labels.footer, left, footerY + 37 * scale)
   ctx.textAlign = 'right'
   ctx.fillText(formatClock(time) + '  /  ' + formatClock(duration), left + maxWidth, footerY + 37 * scale)
   ctx.restore()

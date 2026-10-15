@@ -1,6 +1,6 @@
-const CACHE = 'audio2video-v1'
+const CACHE = 'audio2video-v2'
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/', '/icon.svg', '/manifest.webmanifest'])))
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/', '/icon.svg', '/manifest.webmanifest', '/local-asr-worker.js'])))
   self.skipWaiting()
 })
 self.addEventListener('activate', (event) => {
