@@ -256,3 +256,21 @@ a { color: inherit; text-decoration: none; }
   .cloud-button { flex: 1; }
   .export-button { flex: 1; }
 }
+
+.local-only-note { color: #357a59; background: #effaf3; border: 1px solid #cdebd6; font-size: 11px; font-weight: 750; padding: 12px; border-radius: 10px; display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.mom-auto { background: #f7f7fd; border-radius: 9px; padding: 12px; margin-bottom: 5px; }
+.mom-auto > span { color: #454a63; }
+.local-working { display: flex; align-items: center; gap: 8px; background: #eeefff; border-radius: 9px; color: #645acb; font-size: 11px; padding: 12px 8px; margin: 10px 0; }
+.local-working span { flex: 1; }
+.local-working button { border: 0; background: transparent; font-weight: 800; color: #645acb; }
+.download-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.share-button { border: 0; background: #635cdd; }
+.share-button:hover { background: #524cc7; }
+@media(max-width:660px) {
+  .download-panel { flex-direction: column; align-items: stretch; }
+  .download-actions { flex-direction: column; }
+  .download-actions .download-button { justify-content: center; }
+  .export-options .export-select { flex: 1; min-width: 125px; }
+  .export-options .export-select select { min-width: 0; width: 100%; }
+  .export-button { width: 100%; }
+}
